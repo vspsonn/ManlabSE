@@ -4,8 +4,11 @@ classdef Beam2Element < Element
         beam_props
         
         n_gp = 2
+        number_of_aux_gp
+        
         J0
         G0
+        R0
     end
     
     properties (Constant)
@@ -23,25 +26,27 @@ classdef Beam2Element < Element
     end
     
     methods
-        function obj = Beam2Element(list_node_numbers, beam_props)
-            obj.n_nodes = size(list_node_numbers, 2);
+        function obj = Beam2Element(list_node_numbers, beam_props, R0)
+            obj = obj@Element();
+            obj.number_of_nodes = size(list_node_numbers, 2);
             
-            obj.loc_dof = zeros(1, 6 * obj.n_nodes);
-            obj.loc_config = zeros(1, 7 * obj.n_nodes);
-            for i = 1:obj.n_nodes
-                obj.loc_dof((1:6) + (i-1) * 6) = (2:7) + 7 * (list_node_numbers(i)-1);
+            obj.loc_dof = zeros(1, 6 * obj.number_of_nodes);
+            obj.loc_config = zeros(1, 7 * obj.number_of_nodes);
+            for i = 1:obj.number_of_nodes
+                obj.loc_dof((1:6) + (i-1) * 6) = [5:7 2:4] + 7 * (list_node_numbers(i)-1);
                 obj.loc_config((1:7) + (i-1) * 7) = (1:7) + 7 * (list_node_numbers(i)-1);
             end
             
             obj.beam_props = beam_props;
+            obj.R0 = R0;
         end
         
         function [obj, Ua, loc_aux] = initialize(obj, fe_model, U, loc_aux)
             
-            obj.n_aux = obj.n_gp * (19 * obj.n_nodes + 11);
+            obj.number_of_aux = obj.n_gp * (19 * obj.number_of_nodes + 11);
             obj.loc_aux = loc_aux;
             
-            Ua = zeros(obj.n_aux, 1);
+            Ua = zeros(obj.number_of_aux, 1);
             obj.J0 = zeros(1, obj.n_gp);
             obj.G0 = zeros(6, obj.n_gp);
             
@@ -49,25 +54,24 @@ classdef Beam2Element < Element
             for i = 1:obj.n_gp
                 eta = obj.loc_gp{obj.n_gp}(i);
                 
-                shpfcn = obj.shape_function{obj.n_nodes}(eta);
-                der_shpfcn = obj.der_shape_function{obj.n_nodes}(eta);
+                shpfcn = obj.shape_function{obj.number_of_nodes}(eta);
+                der_shpfcn = obj.der_shape_function{obj.number_of_nodes}(eta);
                 
                 q_bar = zeros(4,1);
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    q_bar = q_bar + shpfcn(k) * F_k(1:4);
+                for k = 1:obj.number_of_nodes
+                    q_k = U((1:4) + (k-1)*7);
+                    q_bar = q_bar + shpfcn(k) * q_k;
                 end
                 z2 = q_bar' * q_bar;
                 Ua(ind_aux) = z2;
                 ind_aux = ind_aux + 1;
                 
                 r_bar = 0.0;
-                p_k = zeros(6, obj.n_nodes);
-                r_k = zeros(1, obj.n_nodes);
+                p_k = zeros(6, obj.number_of_nodes);
+                r_k = zeros(1, obj.number_of_nodes);
                 sq_bar = skew(q_bar(2:4));
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    q_k = F_k(1:4);
+                for k = 1:obj.number_of_nodes
+                    q_k = U((1:4) + (k-1)*7);
                     
                     p_k(4:6, k) = -2.0 * (q_k(1) * q_bar(2:4) - q_bar(1) * q_k(2:4) + sq_bar * q_k(2:4));
                     Ua(ind_aux:ind_aux+2) = p_k(4:6, k);
@@ -87,7 +91,7 @@ classdef Beam2Element < Element
                 ind_aux = ind_aux + 3;
                 
                 x_eta = zeros(3,1);
-                for k = 1:obj.n_nodes
+                for k = 1:obj.number_of_nodes
                     yk = sq_bar * p_k(4:6, k) / z2;
                     Ua(ind_aux:ind_aux+2) = yk;
                     ind_aux = ind_aux + 3;
@@ -96,17 +100,15 @@ classdef Beam2Element < Element
                     Ua(ind_aux:ind_aux+2) = Rp_k;
                     ind_aux = ind_aux + 3;
                     
-                    F_k = U((1:7) + (k-1)*7);
-                    x_k = F_k(5:7);
+                    x_k = U((5:7) + (k-1)*7);
                     x_eta = x_eta + shpfcn(k) / r_bar * (r_k(k) * x_k - 0.5* skew(Rp_k) * x_k);
                 end
                 Ua(ind_aux:ind_aux+2) = x_eta;
                 ind_aux = ind_aux + 3;
                 
                 b_bar = 0.0;
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    x_k = F_k(5:7);
+                for k = 1:obj.number_of_nodes
+                    x_k = U((5:7) + (k-1)*7);
                     Dx = x_k - x_eta;
                     
                     u_k = sq_bar * Dx;
@@ -147,20 +149,20 @@ classdef Beam2Element < Element
         
         function [R, Ra] = assemble(obj, U, Ua)
             
-            R = zeros(6*obj.n_nodes,1);
-            Ra = zeros(obj.n_aux,1);
+            R = zeros(6*obj.number_of_nodes,1);
+            Ra = zeros(obj.number_of_aux,1);
             
             ind_aux = 1;
             for i = 1:obj.n_gp
                 eta = obj.loc_gp{obj.n_gp}(i);
                 
-                shpfcn = obj.shape_function{obj.n_nodes}(eta);
-                der_shpfcn = obj.der_shape_function{obj.n_nodes}(eta) / obj.J0(i);
+                shpfcn = obj.shape_function{obj.number_of_nodes}(eta);
+                der_shpfcn = obj.der_shape_function{obj.number_of_nodes}(eta) / obj.J0(i);
                 
                 q_bar = zeros(4,1);
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    q_bar = q_bar + shpfcn(k) * F_k(1:4);
+                for k = 1:obj.number_of_nodes
+                    q_k = U((1:4) + (k-1)*7);
+                    q_bar = q_bar + shpfcn(k) * q_k;
                 end
                 
                 z2 = Ua(ind_aux);
@@ -168,12 +170,11 @@ classdef Beam2Element < Element
                 ind_aux = ind_aux + 1;
                 
                 r_bar = 0.0;
-                p_k = zeros(6, obj.n_nodes);
-                r_k = zeros(1, obj.n_nodes);
+                p_k = zeros(6, obj.number_of_nodes);
+                r_k = zeros(1, obj.number_of_nodes);
                 sq_bar = skew(q_bar(2:4));
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    q_k = F_k(1:4);
+                for k = 1:obj.number_of_nodes
+                    q_k = U((1:4) + (k-1)*7);
                     
                     p_k(4:6, k) = Ua(ind_aux:ind_aux+2);
                     Ra(ind_aux:ind_aux+2) = p_k(4:6, k) + 2.0 * (q_k(1) * q_bar(2:4) - q_bar(1) * q_k(2:4) + sq_bar * q_k(2:4));
@@ -190,13 +191,13 @@ classdef Beam2Element < Element
                 G = zeros(6, 1);
                 G(4:6) = Ua(ind_aux:ind_aux+2);
                 Ra(ind_aux:ind_aux+2) = r_bar * G(4:6);
-                for k=1:obj.n_nodes
+                for k=1:obj.number_of_nodes
                     Ra(ind_aux:ind_aux+2) = Ra(ind_aux:ind_aux+2) - der_shpfcn(k) * p_k(4:6, k);
                 end
                 ind_aux = ind_aux + 3;
                 
-                Rp_k = zeros(3, obj.n_nodes);
-                for k = 1:obj.n_nodes
+                Rp_k = zeros(3, obj.number_of_nodes);
+                for k = 1:obj.number_of_nodes
                     yk = Ua(ind_aux:ind_aux+2);
                     Ra(ind_aux:ind_aux+2) = z2 * yk - sq_bar * p_k(4:6, k);
                     ind_aux = ind_aux + 3;
@@ -208,17 +209,15 @@ classdef Beam2Element < Element
                 
                 x_eta = Ua(ind_aux:ind_aux+2);
                 Ra(ind_aux:ind_aux+2) = r_bar * x_eta;
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    x_k = F_k(5:7);
+                for k = 1:obj.number_of_nodes
+                    x_k = U((5:7) + (k-1)*7);
                     Ra(ind_aux:ind_aux+2) = Ra(ind_aux:ind_aux+2) - shpfcn(k) * (r_k(k) * x_k - 0.5* skew(Rp_k(:, k)) * x_k);
                 end
                 ind_aux = ind_aux + 3;
                 
                 b_bar_comp = 0.0;
-                for k = 1:obj.n_nodes
-                    F_k = U((1:7) + (k-1)*7);
-                    x_k = F_k(5:7);
+                for k = 1:obj.number_of_nodes
+                    x_k = U((5:7) + (k-1)*7);
                     Dx = x_k - x_eta;
                     
                     u_k = Ua(ind_aux:ind_aux+2);
@@ -242,15 +241,15 @@ classdef Beam2Element < Element
 
                 G(1:3) = Ua(ind_aux:ind_aux+2);
                 Ra(ind_aux:ind_aux+2) = r_bar * G(1:3) + b_bar * G(4:6);
-                for k=1:obj.n_nodes
+                for k=1:obj.number_of_nodes
                     Ra(ind_aux:ind_aux+2) = Ra(ind_aux:ind_aux+2) - der_shpfcn(k) * p_k(1:3, k);
                 end
                 ind_aux = ind_aux + 3;
                 
                 sG_theta = skew(G(4:6));
                 sG_u = skew(G(1:3));
-                Q = zeros(6, 6*obj.n_nodes);
-                for k=1:obj.n_nodes
+                Q = zeros(6, 6*obj.number_of_nodes);
+                for k=1:obj.number_of_nodes
 %                     Q(:, (1:6) + (k-1)*6) = der_shpfcn(k) * eye(6) + shpfcn(k) * [sG_theta sG_u; zeros(3) sG_theta];
                     Q(1:3, (1:3) + (k-1)*6) = der_shpfcn(k) * eye(3) + shpfcn(k) * sG_theta;
                     Q(1:3, (4:6) + (k-1)*6) = shpfcn(k) * sG_u;
