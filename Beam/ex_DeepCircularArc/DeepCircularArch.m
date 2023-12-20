@@ -1,4 +1,4 @@
-global U Section Diagram   % Global variables to export point from the diagram.
+% global U Section Diagram   % Global variables to export point from the diagram.
 
 %% parameters of the system
 

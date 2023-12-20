@@ -31,7 +31,7 @@ classdef ExternalForceElement < Element
             obj.force_props = force_props;
         end
         
-        function [obj, Ua, loc_aux] = initialize(obj, fe_model, U, loc_aux)
+        function [obj, Ua, loc_aux] = initialize(obj, fe_model, ~, loc_aux)
             obj.loc_config = [obj.loc_config fe_model.n_dof+1];
             
             if obj.force_props.follower
@@ -59,8 +59,8 @@ classdef ExternalForceElement < Element
             
             if obj.force_props.follower
                 Ra = zeros(0, n_cols);
-                
                 R = F;
+                
             else
                 R = zeros(obj.n_dof, n_cols);
                 
@@ -88,7 +88,5 @@ classdef ExternalForceElement < Element
                 end
             end
         end
-        
     end
-    
 end

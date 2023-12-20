@@ -1,4 +1,4 @@
-global U Section Diagram  % Global variables to export point from the diagram.
+% global U Section Diagram  % Global variables to export point from the diagram.
 
 %% parameters of the system
 
@@ -34,7 +34,7 @@ sys=SystAQ(fe_model.n_dof_free,fe_model.n_aux,@fem_equations,@fem_point_display,
 Manlab('sys'          ,sys, ...        % description of your system
     'U0value'         ,fe_model.get_U0(0.0), ...         % starting point
     'displayvariables',[fe_model.n_dof_free+1 tracked_dof], ...    % MANLAB run
-    'order'           ,6, ...     % order of the series
+    'order'           ,11, ...     % order of the series
     'ANMthreshold'    ,1e-8, ...   % threshold for the domain of validity of the series
     'Amax_max'        ,1e6, ...    % maximum value of the domain of validity of the series
     'NRthreshold'     ,1e-7, ...   % threshold for Newton-Raphson (NR) corrections
@@ -42,7 +42,7 @@ Manlab('sys'          ,sys, ...        % description of your system
     'NRstart'         ,1, ...      % NR corrections for the user-defined starting point [on]/off
     'NRmethod'        ,0, ...      % NR corrections on/[off]
     'BifDetection'    ,1, ...      % Detection of bifurcation [on]/off
-    'PointDisplay'    ,0, ...      % Point display [on]/off
-    'GlobalDisplay'   ,0, ...      % Global display [on]/off
+    'PointDisplay'    ,1, ...      % Point display [on]/off
+    'GlobalDisplay'   ,1, ...      % Global display [on]/off
     'StabilityCheck'  ,0, ...      % Stability computation on/[off]
     'StabTol'         ,1e-6);   % Stability tolerance
